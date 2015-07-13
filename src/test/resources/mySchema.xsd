@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified" attributeFormDefault="unqualified">
+	<xs:element name="root" type="Root"/>
+	
+	<xs:complexType name="Root">
+		<xs:sequence>
+			<xs:element name="someString" minOccurs="0"/>
+			<xs:element name="someInt" type="xs:int"/>
+			<xs:element name="someOtherInt" type="xs:int"/>
+			<xs:element name="someDates" type="xs:date" minOccurs="0" maxOccurs="2"/>
+			<xs:element name="someRecord" maxOccurs="unbounded">
+				<xs:complexType>
+					<xs:sequence>
+						<xs:element name="specialDateTime" type="DateTimeWithAttributes"/>
+						<xs:choice>
+							<xs:element name="one"/>
+							<xs:element name="theOther" type="xs:boolean"/>
+						</xs:choice>
+					</xs:sequence>
+				</xs:complexType>
+			</xs:element>
+		</xs:sequence>
+	</xs:complexType>
+
+	<xs:complexType name="DateTimeWithAttributes">
+		<xs:simpleContent>
+			<xs:extension base="xs:dateTime">
+				<xs:attribute name="myAttribute" type="intWithEnum"/>
+			</xs:extension>
+		</xs:simpleContent>
+	</xs:complexType>
+	
+	<xs:simpleType name="intWithEnum">
+		<xs:restriction base="xs:int">
+			<xs:enumeration value="1"/>
+			<xs:enumeration value="2"/>
+		</xs:restriction>
+	</xs:simpleType>
+	
+</xs:schema>

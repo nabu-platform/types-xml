@@ -1,0 +1,20 @@
+<root>
+	<myRecord>
+		<myField1>5</myField1>
+		<myField2>test1</myField2>
+		<myField2>test2</myField2>
+		<myField2>test3</myField2>
+		<myField4>
+			<myChild1>childTest1</myChild1>
+		</myField4>
+	</myRecord>
+	<myRecord myIndex="1">
+		<myField1>6</myField1>
+		<myField2>wee1</myField2>
+		<myField2>wee2</myField2>
+		<myField2>wee3</myField2>
+		<myField4>
+			<myChild1>childTest2</myChild1>
+		</myField4>
+	</myRecord>
+</root>

@@ -1,0 +1,10 @@
+<root>
+	<someInt>666</someInt>
+	<someDates>2014-01-01</someDates>
+	<someDates>2014-01-02</someDates>
+	<someDates>2014-01-03</someDates>
+	<someRecord>
+		<specialDateTime myAttribute="3">2014-02-28T00:00:00</specialDateTime>
+		<theOther>true</theOther>
+	</someRecord>
+</root>
