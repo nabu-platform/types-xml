@@ -22,10 +22,12 @@ import org.w3c.dom.Node;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
-import be.nabu.types.evaluator.EvaluationException;
-import be.nabu.types.evaluator.Operation;
-import be.nabu.types.evaluator.PathAnalyzer;
-import be.nabu.types.evaluator.QueryParser;
+import be.nabu.libs.evaluator.EvaluationException;
+import be.nabu.libs.evaluator.PathAnalyzer;
+import be.nabu.libs.evaluator.QueryParser;
+import be.nabu.libs.evaluator.api.Operation;
+import be.nabu.libs.evaluator.types.operations.TypesOperationProvider;
+import be.nabu.libs.types.api.ComplexContent;
 
 public class TestXMLContent extends TestCase {
 	
@@ -35,15 +37,16 @@ public class TestXMLContent extends TestCase {
 		assertEquals("test2", content.get("myRecord[0]/myField2[1]"));
 		
 		// test evaluation
-		Operation operation = PathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[myField1 > 5]/myField2"));
+		PathAnalyzer<ComplexContent> pathAnalyzer = new PathAnalyzer<ComplexContent>(new TypesOperationProvider());
+		Operation operation = pathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[myField1 > 5]/myField2"));
 		assertEquals(Arrays.asList(new String[] { "wee1", "wee2", "wee3" }), operation.evaluate(content));
 		
 		// test methods
-		operation = PathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[exists(@myIndex)]/@myIndex"));
+		operation = pathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[exists(@myIndex)]/@myIndex"));
 		assertEquals(Arrays.asList(new String[] { "1" }), operation.evaluate(content));
 		
 		// nested method
-		operation = PathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[not(exists(@myIndex))]/myField4/myChild1"));
+		operation = pathAnalyzer.analyze(QueryParser.getInstance().parse("myRecord[not(exists(@myIndex))]/myField4/myChild1"));
 		assertEquals(Arrays.asList(new String[] { "childTest1" }), operation.evaluate(content));
 	}
 	
