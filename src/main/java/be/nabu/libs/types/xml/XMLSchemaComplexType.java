@@ -7,8 +7,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.xml.sax.SAXException;
-
 import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.ParsedPath;
@@ -22,6 +20,7 @@ import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.base.RootElement;
 import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
 import be.nabu.libs.types.properties.ElementQualifiedDefaultProperty;
+import be.nabu.libs.types.structure.StructureInstance;
 import be.nabu.libs.validator.MultipleValidator;
 import be.nabu.libs.validator.api.Validator;
 
@@ -64,12 +63,7 @@ public class XMLSchemaComplexType extends XMLSchemaType<XMLContent> implements C
 	public ComplexContent newInstance() {
 		// TODO: the collection support in XMLContent has to be revisited
 		// with it, we should look at implementing xsd any in the same way
-		try {
-			return new XMLContent(this);
-		}
-		catch (SAXException e) {
-			throw new RuntimeException(e);
-		}
+		return new StructureInstance(this);
 	}
 
 	@Override
