@@ -10,7 +10,7 @@ import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.Type;
-import be.nabu.libs.validator.api.ValidationMessage;
+import be.nabu.libs.validator.api.Validation;
 
 public class XMLSchemaReferenceElement<T> implements Element<T> {
 
@@ -37,7 +37,7 @@ public class XMLSchemaReferenceElement<T> implements Element<T> {
 	}
 	
 	@Override
-	public List<ValidationMessage> validate(T instance) {
+	public List<? extends Validation<?>> validate(T instance) {
 		return getReference().validate(instance);
 	}
 
