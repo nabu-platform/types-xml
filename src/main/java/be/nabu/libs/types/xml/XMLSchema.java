@@ -611,16 +611,18 @@ public class XMLSchema implements TypeRegistry, Artifact {
 			if (name != null)
 				element.setProperty(new ValueImpl<String>(new NameProperty(), name));
 		}
+		// set optional attributes
 		if (maxOccurs != null)
-			element.setProperty(new ValueImpl(new MaxOccursProperty(), maxOccurs.equals("unbounded") ? 0 : new Integer(maxOccurs)));
+			element.setProperty(new ValueImpl(MaxOccursProperty.getInstance(), maxOccurs.equals("unbounded") ? 0 : new Integer(maxOccurs)));
 		if (minOccurs != null)
-			element.setProperty(new ValueImpl(new MinOccursProperty(), new Integer(minOccurs)));
-		if (nillable != null)
-			element.setProperty(new ValueImpl(new NillableProperty(), new Boolean(nillable)));
-		if (form != null)
-			element.setProperty(new ValueImpl(new QualifiedProperty(), form.equalsIgnoreCase("qualified")));
-		element.setProperty(new ValueImpl<Boolean>(new ElementQualifiedDefaultProperty(), isElementQualified));
-		element.setProperty(new ValueImpl<Boolean>(new AttributeQualifiedDefaultProperty(), isAttributeQualified));
+			element.setProperty(new ValueImpl(MinOccursProperty.getInstance(), new Integer(minOccurs)));
+		// set fixed attributes
+		// xml scheme has nillable false by default
+		element.setProperty(new ValueImpl(NillableProperty.getInstance(), nillable != null ? new Boolean(nillable) : false));
+		// default is unqualified
+		element.setProperty(new ValueImpl(QualifiedProperty.getInstance(), form != null ? form.equalsIgnoreCase("qualified") : false));
+		element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
+		element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
 		// only register elements that are at the root of the schema
 		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema"))
 			registry.register(element);
