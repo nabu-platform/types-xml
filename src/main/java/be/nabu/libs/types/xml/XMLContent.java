@@ -24,6 +24,7 @@ import org.xml.sax.SAXException;
 
 import be.nabu.libs.converter.ConverterFactory;
 import be.nabu.libs.converter.api.Converter;
+import be.nabu.libs.types.ComplexContentWrapperFactory;
 import be.nabu.libs.types.DefinedTypeResolverFactory;
 import be.nabu.libs.types.ParsedPath;
 import be.nabu.libs.types.TypeUtils;
@@ -37,7 +38,6 @@ import be.nabu.libs.types.api.TypeRegistry;
 import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.DynamicElement;
 import be.nabu.libs.types.base.RootElement;
-import be.nabu.libs.types.java.BeanInstance;
 import be.nabu.libs.types.properties.NameProperty;
 
 public class XMLContent implements ComplexContent {
@@ -164,7 +164,7 @@ public class XMLContent implements ComplexContent {
 				Type type = value == null ? typeResolver.resolve(String.class.getName()) : typeResolver.resolve(value.getClass().getName());
 				childDefinition = new DynamicElement(childDefinition, type, childName);
 				if (type instanceof ComplexType && value != null && !(value instanceof ComplexContent)) {
-					value = new BeanInstance(value);
+					value = ComplexContentWrapperFactory.getInstance().getWrapper().wrap(value);
 				}
 				parsed.setIndex(null);
 			}			
