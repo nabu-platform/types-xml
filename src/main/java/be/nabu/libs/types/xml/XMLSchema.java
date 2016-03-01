@@ -33,7 +33,6 @@ import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
-import be.nabu.libs.types.api.ModifiableTypeRegistry;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.SimpleTypeWrapper;
 import be.nabu.libs.types.api.Type;
@@ -73,7 +72,7 @@ public class XMLSchema implements TypeRegistry, Artifact {
 	private boolean isAttributeQualified = false;
 	private boolean stringsOnly = false;
 	
-	private ModifiableTypeRegistry registry = new TypeRegistryImpl();
+	private TypeRegistryImpl registry = new TypeRegistryImpl();
 	private SimpleTypeWrapper wrapper = SimpleTypeWrapperFactory.getInstance().getWrapper();
 	
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -116,6 +115,17 @@ public class XMLSchema implements TypeRegistry, Artifact {
 	public XMLSchema(Document document, boolean stringsOnly) {
 		this.document = document;
 		this.stringsOnly = stringsOnly;
+	}
+
+	public boolean isPrioritizeIncludes() {
+		return registry.isPrioritizeIncludes();
+	}
+	public void setPrioritizeIncludes(boolean prioritizeIncludes) {
+		registry.setPrioritizeIncludes(prioritizeIncludes);
+	}
+	
+	public void register(TypeRegistry...registries) {
+		registry.register(registries);
 	}
 	
 	public void parse() throws SAXException, ParseException, IOException {
