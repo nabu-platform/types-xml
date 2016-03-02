@@ -27,11 +27,11 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
-import be.nabu.libs.artifacts.api.Artifact;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
 import be.nabu.libs.types.api.ComplexType;
+import be.nabu.libs.types.api.DefinedTypeRegistry;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.SimpleType;
 import be.nabu.libs.types.api.SimpleTypeWrapper;
@@ -59,7 +59,7 @@ import be.nabu.libs.types.properties.NillableProperty;
 import be.nabu.libs.types.properties.PatternProperty;
 import be.nabu.libs.types.properties.QualifiedProperty;
 
-public class XMLSchema implements TypeRegistry, Artifact {
+public class XMLSchema implements DefinedTypeRegistry {
 	
 	private ResourceResolver resolver;
 	private String namespace;
