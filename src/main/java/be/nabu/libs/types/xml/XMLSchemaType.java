@@ -49,7 +49,7 @@ public class XMLSchemaType<T> extends BaseType<T> {
 		return properties.values().toArray(new Value<?>[properties.size()]);
 	}
 	
-	XMLSchema getSchema() {
+	public XMLSchema getSchema() {
 		return schema;
 	}
 }
