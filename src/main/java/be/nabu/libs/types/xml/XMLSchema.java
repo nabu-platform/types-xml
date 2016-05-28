@@ -269,7 +269,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 		String base = firstChildElement.hasAttribute("base") ? firstChildElement.getAttribute("base") : null;
 		logger.trace("Extends base type " + base);
 		int index = base == null ? -1 : base.indexOf(':');
-		String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : getNamespace();
+		String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : namespaces.get(null);
 		String baseName = index >= 0 ? base.substring(index + 1) : base;
 
 		SimpleType superType = null;
@@ -404,7 +404,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 					String base = firstChildElement.hasAttribute("base") ? firstChildElement.getAttribute("base") : null;
 					logger.debug("{} extends complex type " + base, complexType);
 					int index = base == null ? -1 : base.indexOf(':');
-					String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : getNamespace();
+					String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : namespaces.get(null);
 					String baseName = index >= 0 ? base.substring(index + 1) : base;
 					// it must be a complex superType because of the complexContent
 					ComplexType superType = getComplexType(baseNamespace, baseName);
