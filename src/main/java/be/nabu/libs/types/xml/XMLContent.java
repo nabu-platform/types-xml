@@ -20,6 +20,7 @@ import javax.xml.transform.stream.StreamResult;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 import be.nabu.libs.converter.ConverterFactory;
@@ -361,8 +362,9 @@ public class XMLContent implements ComplexContent {
 			// has a child path
 			if (parsed.getChildPath() != null) {
 				int index = 0;
-				for (int i = 0; i < element.getChildNodes().getLength(); i++) {
-					Node child = element.getChildNodes().item(i);
+				NodeList childNodes = element.getChildNodes();
+				for (int i = 0; i < childNodes.getLength(); i++) {
+					Node child = childNodes.item(i);
 					if (child.getNodeType() == Node.ELEMENT_NODE && parsed.getName().equals(getName(child))) {
 						Element childElement = (Element) child;
 						if (!children.containsKey(childElement))
@@ -384,8 +386,9 @@ public class XMLContent implements ComplexContent {
 				else {
 					childDefinition = getType() != null ? getType().get(parsed.getName()) : null;
 					int index = 0;
-					for (int i = 0; i < element.getChildNodes().getLength(); i++) {
-						Node child = element.getChildNodes().item(i);
+					NodeList childNodes = element.getChildNodes();
+					for (int i = 0; i < childNodes.getLength(); i++) {
+						Node child = childNodes.item(i);
 						if (child.getNodeType() == Node.ELEMENT_NODE && parsed.getName().equals(getName(child))) {
 							Element childElement = (Element) child;
 							if (!children.containsKey(childElement))

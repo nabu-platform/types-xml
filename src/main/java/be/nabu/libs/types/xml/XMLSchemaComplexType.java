@@ -120,7 +120,7 @@ public class XMLSchemaComplexType extends XMLSchemaType<XMLContent> implements C
 
 		@Override
 		protected ComplexContent convert(Object instance) {
-			return new XMLContent((org.w3c.dom.Element) instance, new RootElement(XMLSchemaComplexType.this));
+			return instance == null ? null : new XMLContent((org.w3c.dom.Element) instance, new RootElement(XMLSchemaComplexType.this));
 		}
 	}
 }

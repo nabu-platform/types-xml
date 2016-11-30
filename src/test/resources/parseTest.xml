@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<schema xmlns="http://www.w3.org/2001/XMLSchema" xmlns:tns="http://www.example.com/invoice"
+	elementFormDefault="qualified" targetNamespace="http://www.example.com/invoice">
+	<complexType name="deliveryPointType">
+		<sequence>
+			<element name="deliveryPoint.address.box" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.address.city" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.address.countryIso" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.address.number" nillable="true"
+				type="long" />
+			<element name="deliveryPoint.address.postalCode" nillable="true"
+				type="long" />
+			<element name="deliveryPoint.address.street" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.direction" nillable="true" type="string" />
+			<element name="deliveryPoint.dgoDetail.gln" nillable="true"
+				type="long" />
+			<element name="deliveryPoint.dgoDetail.codeGRD" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.dgoDetail.nameGRD" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.dgoDetail.nameContact" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.dgoDetail.phoneNumber" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.dgoDetail.email" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.dgoDetail.phoneNumberFailure"
+				nillable="true" type="string" />
+			<element name="deliveryPoint.dgoDetail.phoneNumberLeak"
+				nillable="true" type="string" />
+			<element name="deliveryPoint.dgoDetail.id" nillable="true"
+				type="long" />
+			<element name="deliveryPoint.dgoDetail.regulator" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.energyType" nillable="true"
+				type="string" />
+			<element name="deliveryPoint.gsrn" nillable="true" type="long" />
+			<element name="deliveryPoint.switchingCategoryCode" nillable="true"
+				type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="lineType">
+		<sequence>
+			<element name="amount" nillable="true" type="double" />
+			<element name="beginDate" nillable="true" type="string" />
+			<element name="currency" nillable="true" type="string" />
+			<element name="endDate" nillable="true" type="string" />
+			<element name="text" nillable="true" type="string" />
+			<element name="vatRate" nillable="true" type="string" />
+			<element name="quantity" nillable="true" type="long" />
+			<element name="unit" nillable="true" type="string" />
+			<element name="unitCode" nillable="true" type="string" />
+			<element name="unitPrice" nillable="true" type="double" />
+			<element name="unitPriceCurrency" nillable="true" type="string" />
+		</sequence>
+		<attribute name="number" type="long" />
+	</complexType>
+	<complexType name="contractUserFieldsType">
+		<sequence>
+			<element name="contractUserField" nillable="true"
+				type="tns:contractUserFieldType" />
+		</sequence>
+	</complexType>
+	<complexType name="contractUserFieldType">
+		<sequence>
+			<element name="beginDate" nillable="true" type="string" />
+			<element name="code" nillable="true" type="string" />
+			<element name="endDate" nillable="true" type="string" />
+			<element name="value" nillable="true" type="long" />
+			<element name="valueLabel" nillable="true" type="string" />
+		</sequence>
+		<attribute name="number" type="long" />
+	</complexType>
+	<complexType name="customerUserFieldType">
+		<sequence>
+			<element name="beginDate" nillable="true" type="string" />
+			<element name="code" nillable="true" type="string" />
+			<element name="endDate" nillable="true" type="string" />
+			<element name="value" nillable="true" type="string" />
+			<element name="valueLabel" nillable="true" type="string" />
+		</sequence>
+		<attribute name="number" type="long" />
+	</complexType>
+	<complexType name="contractType">
+		<sequence>
+			<element name="contract.bankAccountNumber" nillable="true"
+				type="string" />
+			<element name="contract.contractCategoryCode" nillable="true"
+				type="string" />
+			<element name="contract.contractualEndDate" nillable="true"
+				type="string" />
+			<element name="contract.internalDeliveryCategoryCode"
+				nillable="true" type="string" />
+			<element name="contract.domiciliationNumber" nillable="true"
+				type="string" />
+			<element name="contract.domiciliationStatus" nillable="true"
+				type="string" />
+			<element name="contract.domiciliationFirstName" nillable="true"
+				type="string" />
+			<element name="contract.domiciliationLastName" nillable="true"
+				type="string" />
+			<element name="contract.effectiveStartDate" nillable="true"
+				type="string" />
+			<element name="contract.internalDeliveryCategory" nillable="true"
+				type="string" />
+			<element name="contract.invoiceDeliveryMode" nillable="true"
+				type="string" />
+			<element name="contract.marketCode" nillable="true" type="string" />
+			<element name="contract.paymentMode" nillable="true" type="string" />
+			<element name="contract.productCode" nillable="true" type="string" />
+			<element name="contract.productDescription" nillable="true"
+				type="string" />
+			<element name="contract.supplierRef" nillable="true" type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="invoiceeType">
+		<sequence>
+			<element name="invoicee.address.box" nillable="true" type="string" />
+			<element name="invoicee.address.city" nillable="true" type="string" />
+			<element name="invoicee.address.countryIso" nillable="true"
+				type="string" />
+			<element name="invoicee.address.number" nillable="true" type="long" />
+			<element name="invoicee.address.postalCode" nillable="true"
+				type="long" />
+			<element name="invoicee.address.street" nillable="true" type="string" />
+			<element name="invoicee.email" nillable="true" type="string" />
+			<element name="invoicee.individual" nillable="true" type="string" />
+			<element name="invoicee.nameDescription.companyName"
+				nillable="true" type="string" />
+			<element name="invoicee.nameDescription.firstName" nillable="true"
+				type="string" />
+			<element name="invoicee.nameDescription.lastName" nillable="true"
+				type="string" />
+			<element name="invoicee.nameDescription.legalForm" nillable="true"
+				type="string" />
+			<element name="invoicee.nameDescription.title" nillable="true"
+				type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="accountingType">
+		<sequence>
+			<element name="lines" nillable="true" type="tns:linesType" />
+		</sequence>
+	</complexType>
+	<complexType name="linesType">
+		<sequence>
+			<element maxOccurs="unbounded" name="line" nillable="true"
+				type="tns:lineType" />
+		</sequence>
+		<attribute name="type" type="string" />
+	</complexType>
+	<complexType name="customerUserFieldsType">
+		<sequence>
+			<element name="customerUserField" nillable="true"
+				type="tns:customerUserFieldType" />
+		</sequence>
+	</complexType>
+	<complexType name="vatLinesType">
+		<sequence>
+			<element maxOccurs="unbounded" name="vatLine" nillable="true"
+				type="tns:vatLineType" />
+		</sequence>
+	</complexType>
+	<complexType name="vatLineType">
+		<sequence>
+			<element name="amount" nillable="true" type="double" />
+			<element name="total" nillable="true" type="double" />
+			<element name="vatAmount" nillable="true" type="double" />
+			<element name="vatRate" nillable="true" type="long" />
+		</sequence>
+		<attribute name="number" type="long" />
+	</complexType>
+	<complexType name="invoiceHeaderType">
+		<sequence>
+			<element name="invoice.cancelledInvDocRef" nillable="true"
+				type="string" />
+			<element name="invoice.dueDate" nillable="true" type="string" />
+			<element name="invoice.internalInvoiceNatureCode" nillable="true"
+				type="string" />
+			<element name="invoice.invDocExtRef" nillable="true" type="string" />
+			<element name="invoice.invDocRef" nillable="true" type="long" />
+			<element name="invoice.invoiceDate" nillable="true" type="string" />
+			<element name="invoice.periodEnd" nillable="true" type="string" />
+			<element name="invoice.periodStart" nillable="true" type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="printshopType">
+		<sequence>
+			<element maxOccurs="unbounded" name="lines" nillable="true"
+				type="tns:linesType" />
+			<element name="vatLines" nillable="true" type="tns:vatLinesType" />
+			<element name="consumptions" nillable="true" type="string" />
+			<element name="contractUserFields" nillable="true"
+				type="tns:contractUserFieldsType" />
+			<element name="customerUserFields" nillable="true"
+				type="tns:customerUserFieldsType" />
+		</sequence>
+	</complexType>
+	<complexType name="invoicesType">
+		<sequence>
+			<element name="runId" nillable="true" type="long" />
+			<element maxOccurs="unbounded" name="invoice" nillable="true"
+				type="tns:invoiceType" />
+		</sequence>
+	</complexType>
+	<complexType name="invoiceType">
+		<sequence>
+			<element name="resultFileType" nillable="true" type="string" />
+			<element name="properties" nillable="true" type="tns:propertiesType" />
+			<element name="printshop" nillable="true" type="tns:printshopType" />
+			<element name="accounting" nillable="true" type="tns:accountingType" />
+		</sequence>
+		<attribute name="group" type="string" />
+		<attribute name="number" type="long" />
+	</complexType>
+	<complexType name="propertiesType">
+		<sequence>
+			<element name="invoiceHeader" nillable="true"
+				type="tns:invoiceHeaderType" />
+			<element name="contract" nillable="true" type="tns:contractType" />
+			<element name="customer" nillable="true" type="tns:customerType" />
+			<element name="invoice" nillable="true" type="tns:invoice1Type" />
+			<element name="deliveryPoint" nillable="true"
+				type="tns:deliveryPointType" />
+			<element name="invoicee" nillable="true" type="tns:invoiceeType" />
+			<element name="statistics" nillable="true" type="tns:statisticsType" />
+		</sequence>
+	</complexType>
+	<complexType name="customerType">
+		<sequence>
+			<element name="customer.categoryCode" nillable="true" type="string" />
+			<element name="customer.customerNbr" nillable="true" type="string" />
+			<element name="customer.individual" nillable="true" type="string" />
+			<element name="customer.languageCode" nillable="true" type="string" />
+			<element name="customer.nameDescription.companyName"
+				nillable="true" type="string" />
+			<element name="customer.nameDescription.firstName" nillable="true"
+				type="string" />
+			<element name="customer.nameDescription.lastName" nillable="true"
+				type="string" />
+			<element name="customer.nameDescription.legalForm" nillable="true"
+				type="string" />
+			<element name="customer.nameDescription.title" nillable="true"
+				type="string" />
+			<element name="customer.vatableCode" nillable="true" type="string" />
+			<element name="customer.vatNumber" nillable="true" type="string" />
+			<element name="customer.address.box" nillable="true" type="string" />
+			<element name="customer.address.city" nillable="true" type="string" />
+			<element name="customer.address.country" nillable="true"
+				type="string" />
+			<element name="customer.address.countryiso" nillable="true"
+				type="string" />
+			<element name="customer.address.number" nillable="true" type="long" />
+			<element name="customer.address.postalCode" nillable="true"
+				type="long" />
+			<element name="customer.address.street" nillable="true" type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="invoice1Type">
+		<sequence>
+			<element name="invoice.contractOtherEnergy" nillable="true"
+				type="string" />
+			<element name="invoice.currency" nillable="true" type="string" />
+			<element name="invoice.newInstalmentAmount" nillable="true"
+				type="string" />
+			<element name="invoice.sign" nillable="true" type="string" />
+			<element name="invoice.total" nillable="true" type="double" />
+			<element name="invoice.totalDet" nillable="true" type="double" />
+			<element name="invoice.totalExt" nillable="true" type="double" />
+			<element name="invoice.totalWithoutVAT" nillable="true" type="double" />
+			<element name="invoice.vat" nillable="true" type="long" />
+			<element name="invoice.totalInj" nillable="true" type="string" />
+			<element name="invoice.totalInjWithoutVAT" nillable="true"
+				type="string" />
+			<element name="invoice.vatInj" nillable="true" type="string" />
+			<element name="invoice.vcs" nillable="true" type="long" />
+			<element name="invoice.welcomePage" nillable="true" type="string" />
+		</sequence>
+	</complexType>
+	<complexType name="statisticsType">
+		<sequence>
+			<element name="invoice.kwhAveragePrice" nillable="true" type="string" />
+		</sequence>
+	</complexType>
+</schema>
+
+
+
+
+

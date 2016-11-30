@@ -230,12 +230,19 @@ public class XMLSchema implements DefinedTypeRegistry {
 		
 		logger.debug("Importing (namespace " + namespace + "): " + schemaLocation);
 		try {
-			TypeRegistry imported = schemaLocation == null ? getResolver().resolve(namespace) : new XMLSchema(getResolver().resolve(new URI(schemaLocation)));
+			TypeRegistry imported;
+			if (schemaLocation == null) {
+				imported = getResolver().resolve(namespace);
+			}
+			else {
+				imported = new XMLSchema(getResolver().resolve(new URI(schemaLocation)));
+				((XMLSchema) imported).parse();
+			}
 			if (imported == null) {
 				throw new FileNotFoundException("Could not find import for " + namespace);
 			}
 			if (imported instanceof XMLSchema && !namespace.equals(((XMLSchema) imported).getNamespace())) {
-				throw new ParseException("The imported schema does not have the declared namespace: " + schemaLocation, 0);
+				throw new ParseException("The imported schema '" + schemaLocation + "' does not have the declared namespace: " + namespace + " != " + ((XMLSchema) imported).getNamespace(), 0);
 			}
 			registry.register(imported);
 			return imported;
@@ -357,7 +364,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 //		String fixedValue = tag.hasAttribute("fixed") ? tag.getAttribute("fixed") : null;
 		
 		int index = type == null ? -1 : type.indexOf(':');
-		String typeNamespace = index >= 0 ? namespaces.get(type.substring(0, index)) : getNamespace();
+		String typeNamespace = index >= 0 ? namespaces.get(type.substring(0, index)) : namespaces.get(null);
 		String typeName = index >= 0 ? type.substring(index + 1) : type;
 		// if type is null, it's a string
 		SimpleType simpleType = type == null || NAMESPACE.equals(typeNamespace) 
