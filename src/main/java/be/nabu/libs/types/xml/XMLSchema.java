@@ -27,9 +27,11 @@ import org.w3c.dom.NamedNodeMap;
 import org.w3c.dom.Node;
 import org.xml.sax.SAXException;
 
+import be.nabu.libs.property.ValueUtils;
 import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.SimpleTypeWrapperFactory;
 import be.nabu.libs.types.TypeRegistryImpl;
+import be.nabu.libs.types.TypeUtils;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.DefinedTypeRegistry;
 import be.nabu.libs.types.api.Element;
@@ -39,9 +41,11 @@ import be.nabu.libs.types.api.Type;
 import be.nabu.libs.types.api.TypeRegistry;
 import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.Choice;
+import be.nabu.libs.types.base.CollectionFormat;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.properties.ActualTypeProperty;
 import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
+import be.nabu.libs.types.properties.CollectionFormatProperty;
 import be.nabu.libs.types.properties.ElementQualifiedDefaultProperty;
 import be.nabu.libs.types.properties.EnumerationProperty;
 import be.nabu.libs.types.properties.FormatProperty;
@@ -58,6 +62,7 @@ import be.nabu.libs.types.properties.NameProperty;
 import be.nabu.libs.types.properties.NillableProperty;
 import be.nabu.libs.types.properties.PatternProperty;
 import be.nabu.libs.types.properties.QualifiedProperty;
+import be.nabu.libs.types.properties.TokenProperty;
 
 public class XMLSchema implements DefinedTypeRegistry {
 	
@@ -73,6 +78,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 	private boolean stringsOnly = false;
 	
 	private TypeRegistryImpl registry = new TypeRegistryImpl();
+	
+	// an internal (temporary) registry solely for groups
+	private TypeRegistryImpl groupRegistry = new TypeRegistryImpl();
+	
 	private SimpleTypeWrapper wrapper = SimpleTypeWrapperFactory.getInstance().getWrapper();
 	
 	private Logger logger = LoggerFactory.getLogger(getClass());
@@ -157,7 +166,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 				return parseImport(element, namespaces);
 			else if (element.getLocalName().equalsIgnoreCase("element"))
 				return parseElement(element, namespaces, parent);
-			else if (element.getLocalName().equalsIgnoreCase("complexType"))
+			else if (element.getLocalName().equalsIgnoreCase("complexType") || element.getLocalName().equalsIgnoreCase("group"))
 				return parseComplexType(element, namespaces);
 			else if (element.getLocalName().equalsIgnoreCase("attribute"))
 				return parseAttribute(element, namespaces, parent);
@@ -167,6 +176,14 @@ public class XMLSchema implements DefinedTypeRegistry {
 				return parseSimpleType(element, namespaces);
 			else if (element.getLocalName().equalsIgnoreCase("any"))
 				return createAny(false, element, parent);
+			// this can occur if for example you have a sequence element in a choice
+			else if (element.getLocalName().equalsIgnoreCase("sequence")) {
+				return parseSequence(element, namespaces, parent);
+			}
+			// we currently ignore annotations
+			else if (element.getLocalName().equalsIgnoreCase("annotation")) {
+				return null;
+			}
 			else
 				throw new ParseException("The parser currently does not support " + element.getLocalName(), 0);
 		}
@@ -273,85 +290,124 @@ public class XMLSchema implements DefinedTypeRegistry {
 		String name = tag.hasAttribute("name") ? tag.getAttribute("name") : null;
 		org.w3c.dom.Element firstChildElement = getFirstChild(tag);
 
-		String base = firstChildElement.hasAttribute("base") ? firstChildElement.getAttribute("base") : null;
-		logger.trace("Extends base type " + base);
-		int index = base == null ? -1 : base.indexOf(':');
-		String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : namespaces.get(null);
-		String baseName = index >= 0 ? base.substring(index + 1) : base;
-
-		SimpleType superType = null;
-		if (baseName != null) {
-			// can only extend another simple type
-			superType = getSimpleType(baseNamespace, baseName);
-			// if the supertype is not available (yet), return null so it is tried again later
-			if (superType == null)
-				return new DelayedParse(tag, "Could not find superType " + baseNamespace + " # " + baseName);
+		if (firstChildElement == null) {
+			return null;
 		}
 		
-		SimpleType actualType = null;
-		if (stringsOnly && !String.class.isAssignableFrom(superType.getInstanceClass())) {
-			logger.debug("Hiding type " + superType + " in a string");
-			actualType = superType;
-			superType = getNativeSchemaType("string");
-		}
-		
-		XMLSchemaSimpleType<?> simpleType = name == null ? new XMLSchemaSimpleType(this, superType, baseName) : new XMLSchemaDefinedSimpleType(this, name, superType, baseName);
-		
-		if (actualType != null)
-			simpleType.setProperty(new ValueImpl(new ActualTypeProperty(), actualType));
-		
-		// at some point it must reference a native type which has no supertype
-		// all native types are implemented with unmarshalling capabilities
-		// we need the base type you are extending in case it's a date, because we need to know which type of date
-		String baseTypeName = simpleType.getBaseTypeName();
-		superType = (SimpleType) simpleType.getSuperType();
-		while(superType.getSuperType() != null) {
-			if (superType instanceof XMLSchemaSimpleType)
-				baseTypeName = ((XMLSchemaSimpleType) superType).getBaseTypeName();
-			superType = (SimpleType) superType.getSuperType();
-		}
-
-		logger.debug("Base super type {} has baseTypeName " + baseTypeName, superType.getClass());
-		// date is the only one that needs additional context (the name of the simple type you are extending)
-		Value<String> format = new ValueImpl<String>(new FormatProperty(), baseTypeName);
-		if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("restriction")) {
-			List enumerationValues = new ArrayList();
-			for (int i = 0; i < firstChildElement.getChildNodes().getLength(); i++) {
-				if (firstChildElement.getChildNodes().item(i).getNodeType() == Node.ELEMENT_NODE) {
-					if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("length"))
-						simpleType.setProperty(new ValueImpl<Integer>(new LengthProperty(), new Integer(firstChildElement.getChildNodes().item(i).getTextContent())));
-					else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minLength"))
-						simpleType.setProperty(new ValueImpl<Integer>(new MinLengthProperty(), new Integer(firstChildElement.getChildNodes().item(i).getTextContent())));
-					else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxLength"))
-						simpleType.setProperty(new ValueImpl<Integer>(new MaxLengthProperty(), new Integer(firstChildElement.getChildNodes().item(i).getTextContent())));
-					else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("pattern"))
-						simpleType.setProperty(new ValueImpl<String>(new PatternProperty(), firstChildElement.getChildNodes().item(i).getTextContent()));
-					else {
-						Object parsed = ((Unmarshallable) superType).unmarshal(((org.w3c.dom.Element) firstChildElement.getChildNodes().item(i)).getAttribute("value"), format);
-						if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minInclusive"))
-							simpleType.setProperty(new ValueImpl(new MinInclusiveProperty(), parsed));
-						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxInclusive"))
-							simpleType.setProperty(new ValueImpl(new MaxInclusiveProperty(), parsed));
-						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxExclusive"))
-							simpleType.setProperty(new ValueImpl(new MaxExclusiveProperty(), parsed));
-						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minExclusive"))
-							simpleType.setProperty(new ValueImpl(new MinExclusiveProperty(), parsed));
-						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("enumeration"))
-							enumerationValues.add(parsed);
-					}
-					// TODO: no support for fractionDigits & totalDigits
-				}
+		XMLSchemaSimpleType<?> simpleType;
+		if (firstChildElement.getLocalName().equalsIgnoreCase("list")) {
+			String itemType = firstChildElement.hasAttribute("itemType") ? firstChildElement.getAttribute("itemType") : null;
+			logger.trace("List of base type " + itemType);
+			int index = itemType == null ? -1 : itemType.indexOf(':');
+			String itemTypeNamespace = index >= 0 ? namespaces.get(itemType.substring(0, index)) : namespaces.get(null);
+			String itemTypeName = index >= 0 ? itemType.substring(index + 1) : itemType;
+			SimpleType superType = getSimpleType(itemTypeNamespace, itemTypeName);
+			if (superType == null) {
+				return new DelayedParse(tag, "Could not find list item type " + itemTypeNamespace + " # " + itemTypeName);
 			}
-			if (!enumerationValues.isEmpty())
-				simpleType.setProperty(new ValueImpl(new EnumerationProperty(), enumerationValues));
+			simpleType = name == null ? new XMLSchemaSimpleType(this, superType, itemTypeName) : new XMLSchemaDefinedSimpleType(this, name, superType, itemTypeName);
+			simpleType.setProperty(new ValueImpl<Integer>(MaxOccursProperty.getInstance(), 0));
+			simpleType.setProperty(new ValueImpl<CollectionFormat>(CollectionFormatProperty.getInstance(), CollectionFormat.SSV));
 		}
-		else
-			throw new RuntimeException("Only simple restrictions of simple types are currently supported");
-
+		else {
+			String base = firstChildElement.hasAttribute("base") ? firstChildElement.getAttribute("base") : null;
+			logger.trace("Extends base type " + base);
+			int index = base == null ? -1 : base.indexOf(':');
+			String baseNamespace = index >= 0 ? namespaces.get(base.substring(0, index)) : namespaces.get(null);
+			String baseName = index >= 0 ? base.substring(index + 1) : base;
+	
+			SimpleType superType = null;
+			if (baseName != null) {
+				// can only extend another simple type
+				superType = getSimpleType(baseNamespace, baseName);
+				// if the supertype is not available (yet), return null so it is tried again later
+				if (superType == null)
+					return new DelayedParse(tag, "Could not find superType " + baseNamespace + " # " + baseName);
+			}
+			
+			SimpleType actualType = null;
+			if (stringsOnly && !String.class.isAssignableFrom(superType.getInstanceClass())) {
+				logger.debug("Hiding type " + superType + " in a string");
+				actualType = superType;
+				superType = getNativeSchemaType("string");
+			}
+			
+			simpleType = name == null ? new XMLSchemaSimpleType(this, superType, baseName) : new XMLSchemaDefinedSimpleType(this, name, superType, baseName);
+			
+			if (actualType != null)
+				simpleType.setProperty(new ValueImpl(new ActualTypeProperty(), actualType));
+			
+			// at some point it must reference a native type which has no supertype
+			// all native types are implemented with unmarshalling capabilities
+			// we need the base type you are extending in case it's a date, because we need to know which type of date
+			String baseTypeName = simpleType.getBaseTypeName();
+			superType = (SimpleType) simpleType.getSuperType();
+			while(superType.getSuperType() != null) {
+				if (superType instanceof XMLSchemaSimpleType)
+					baseTypeName = ((XMLSchemaSimpleType) superType).getBaseTypeName();
+				superType = (SimpleType) superType.getSuperType();
+			}
+	
+			logger.debug("Base super type {} has baseTypeName " + baseTypeName, superType.getClass());
+			// date is the only one that needs additional context (the name of the simple type you are extending)
+			Value<String> format = new ValueImpl<String>(new FormatProperty(), baseTypeName);
+			if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("restriction")) {
+				List enumerationValues = new ArrayList();
+				for (int i = 0; i < firstChildElement.getChildNodes().getLength(); i++) {
+					if (firstChildElement.getChildNodes().item(i).getNodeType() == Node.ELEMENT_NODE) {
+						CollectionFormat collectionFormat = ValueUtils.getValue(CollectionFormatProperty.getInstance(), superType.getProperties());
+						
+						String value = ((org.w3c.dom.Element) firstChildElement.getChildNodes().item(i)).getAttribute("value"); 
+						if (value != null && value.trim().isEmpty()) {
+							value = null;
+						}
+						if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("length"))
+							simpleType.setProperty(new ValueImpl<Integer>(new LengthProperty(), new Integer(value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent())));
+						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minLength")) {
+							if (collectionFormat != null) {
+								simpleType.setProperty(new ValueImpl<Integer>(MinOccursProperty.getInstance(), new Integer(value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent())));	
+							}
+							else {
+								simpleType.setProperty(new ValueImpl<Integer>(new MinLengthProperty(), new Integer(value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent())));
+							}
+						}
+						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxLength")) {
+							if (collectionFormat != null) {
+								simpleType.setProperty(new ValueImpl<Integer>(MaxOccursProperty.getInstance(), new Integer(value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent())));	
+							}
+							else {
+								simpleType.setProperty(new ValueImpl<Integer>(new MaxLengthProperty(), new Integer(value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent())));
+							}
+						}
+						else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("pattern"))
+							simpleType.setProperty(new ValueImpl<String>(new PatternProperty(), value != null ? value : firstChildElement.getChildNodes().item(i).getTextContent()));
+						else {
+							Object parsed = ((Unmarshallable) superType).unmarshal(value, format);
+							if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minInclusive"))
+								simpleType.setProperty(new ValueImpl(new MinInclusiveProperty(), parsed));
+							else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxInclusive"))
+								simpleType.setProperty(new ValueImpl(new MaxInclusiveProperty(), parsed));
+							else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("maxExclusive"))
+								simpleType.setProperty(new ValueImpl(new MaxExclusiveProperty(), parsed));
+							else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("minExclusive"))
+								simpleType.setProperty(new ValueImpl(new MinExclusiveProperty(), parsed));
+							else if (firstChildElement.getChildNodes().item(i).getLocalName().equalsIgnoreCase("enumeration"))
+								enumerationValues.add(parsed);
+						}
+						// TODO: no support for fractionDigits & totalDigits
+					}
+				}
+				if (!enumerationValues.isEmpty())
+					simpleType.setProperty(new ValueImpl(new EnumerationProperty(), enumerationValues));
+			}
+			else
+				throw new RuntimeException("Only simple restrictions of simple types are currently supported");
+	
+		}
 		if (name != null)
 			registry.register(simpleType);
 		
-		return simpleType;		
+		return simpleType;
 	}
 	
 	@SuppressWarnings({ "unchecked", "rawtypes" })
@@ -382,6 +438,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 		
 		Element<?> attribute = new XMLSchemaAttribute(this, name, simpleType, parent);
 		
+		if (typeName != null && typeName.equalsIgnoreCase("token")) {
+			attribute.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
+		}
+		
 		if (actualType != null)
 			attribute.setProperty(new ValueImpl(new ActualTypeProperty(), actualType));
 		
@@ -395,6 +455,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 		String name = tag.hasAttribute("name") ? tag.getAttribute("name") : null;
 		XMLSchemaComplexType complexType = null;
 		org.w3c.dom.Element firstChildElement = getFirstChild(tag);
+		if (firstChildElement == null) {
+			return null;
+		}
 		// a sequence of child elements
 		if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && (firstChildElement.getLocalName().equals("sequence") || firstChildElement.getLocalName().equals("all") || firstChildElement.getLocalName().equals("choice"))) {
 			complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
@@ -463,6 +526,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 				else
 					throw new ParseException("Only complex extensions of simple types are currently supported", 0);
 			}
+			// an empty complex type, perhaps it only has attributes?
+			else {
+				complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+			}
 		}
 		// after the first element we can have attributes
 		org.w3c.dom.Element next = getNextSibling(firstChildElement);
@@ -478,8 +545,14 @@ public class XMLSchema implements DefinedTypeRegistry {
 		}
 		
 		// only register named complex types (anonymous can not be referenced)
-		if (name != null)
-			registry.register(complexType);
+		if (name != null) {
+			if (tag.getLocalName().equalsIgnoreCase("group")) {
+				groupRegistry.register(complexType);
+			}
+			else {
+				registry.register(complexType);
+			}
+		}
 		return complexType;
 	}
 	
@@ -496,6 +569,26 @@ public class XMLSchema implements DefinedTypeRegistry {
 						return returnValue;
 					else
 						childElements.addAll((List<Element<?>>) returnValue);
+				}
+				else if (tag.getChildNodes().item(i).getLocalName().equalsIgnoreCase("group")) {
+					org.w3c.dom.Element childTag = (org.w3c.dom.Element) tag.getChildNodes().item(i);
+					String reference = childTag.hasAttribute("ref") ? childTag.getAttribute("ref") : null;
+					if (reference == null) {
+						throw new ParseException("There is a group element inside a sequence but it has no reference", 0);
+					}
+					ComplexType group = null;
+					if (reference != null) {
+						logger.debug("The complex type references group: " + reference);
+						int index = reference == null ? -1 : reference.indexOf(':');
+						String referenceNamespace = index >= 0 ? namespaces.get(reference.substring(0, index)) : namespaces.get(null);
+						String referenceName = index >= 0 ? reference.substring(index + 1) : reference;
+						group = groupRegistry.getComplexType(referenceNamespace, referenceName);
+					}
+					if (group == null) {
+						return new DelayedParse(childTag, "Could not find group: " + reference);
+					}
+					// inject all the children
+					childElements.addAll(TypeUtils.getAllChildren(group));
 				}
 				else {
 					Object parsed = parse((org.w3c.dom.Element) tag.getChildNodes().item(i), namespaces, complexType);
@@ -525,7 +618,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 	
 	private org.w3c.dom.Element getFirstChild(org.w3c.dom.Element tag) {
 		for (int i = 0; i < tag.getChildNodes().getLength(); i++) {
-			if (tag.getChildNodes().item(i).getNodeType() == Node.ELEMENT_NODE)
+			if (tag.getChildNodes().item(i).getNodeType() == Node.ELEMENT_NODE && !tag.getChildNodes().item(i).getLocalName().equalsIgnoreCase("annotation"))
 				return (org.w3c.dom.Element) tag.getChildNodes().item(i);
 		}
 		return null;
@@ -534,7 +627,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 	private org.w3c.dom.Element getNextSibling(org.w3c.dom.Element tag) {
 		Node next = tag.getNextSibling();
 		while (next != null) {
-			if (next.getNodeType() == Node.ELEMENT_NODE)
+			if (next.getNodeType() == Node.ELEMENT_NODE && !next.getLocalName().equalsIgnoreCase("annotation"))
 				return (org.w3c.dom.Element) next;
 			else
 				next = next.getNextSibling();
@@ -569,6 +662,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 		String name = tag.hasAttribute("name") ? tag.getAttribute("name") : null;
 		String nillable = tag.hasAttribute("nillable") ? tag.getAttribute("nillable") : null;
 		String reference = tag.hasAttribute("ref") ? tag.getAttribute("ref") : null;
+		boolean isToken = false;
 		// TODO: currently unused but can add them later
 //		String defaultValue = tag.hasAttribute("default") ? tag.getAttribute("default") : null;
 //		String fixedValue = tag.hasAttribute("fixed") ? tag.getAttribute("fixed") : null;
@@ -607,6 +701,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 					if (Date.class.isAssignableFrom(simpleType.getInstanceClass()))
 						formatProperty = new ValueImpl<String>(new FormatProperty(), typeName);
 					elementType = simpleType;
+					isToken = typeName != null && typeName.equalsIgnoreCase("token");
 				}
 				else {
 					elementType = getSimpleType(typeNamespace, typeName);
@@ -640,6 +735,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 		element.setProperty(new ValueImpl(QualifiedProperty.getInstance(), form != null ? form.equalsIgnoreCase("qualified") : false));
 		element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
 		element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
+		if (isToken) {
+			element.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
+		}
 		// only register elements that are at the root of the schema
 		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema"))
 			registry.register(element);
@@ -659,7 +757,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 	}
 	
 	public static SimpleType<?> getNativeSchemaType(String typeName, SimpleTypeWrapper wrapper) {
-		if (typeName == null || typeName.equalsIgnoreCase("string"))
+		if (typeName == null || typeName.equalsIgnoreCase("string") || typeName.equalsIgnoreCase("token"))
 			return wrapper.wrap(String.class);
 		else if (typeName.equalsIgnoreCase("boolean"))
 			return wrapper.wrap(Boolean.class);
