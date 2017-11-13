@@ -52,4 +52,8 @@ public class XMLSchemaType<T> extends BaseType<T> {
 	public XMLSchema getSchema() {
 		return schema;
 	}
+	
+	protected void clear() {
+		properties.clear();
+	}
 }

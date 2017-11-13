@@ -453,21 +453,34 @@ public class XMLSchema implements DefinedTypeRegistry {
 	@SuppressWarnings({ "rawtypes", "unchecked" })
 	private Object parseComplexType(org.w3c.dom.Element tag, Map<String, String> namespaces) throws SAXException, ParseException, IOException {
 		String name = tag.hasAttribute("name") ? tag.getAttribute("name") : null;
-		XMLSchemaComplexType complexType = null;
+		XMLSchemaComplexType complexType = getComplexType(tag, name);
 		org.w3c.dom.Element firstChildElement = getFirstChild(tag);
 		if (firstChildElement == null) {
 			return null;
 		}
 		// a sequence of child elements
 		if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && (firstChildElement.getLocalName().equals("sequence") || firstChildElement.getLocalName().equals("all") || firstChildElement.getLocalName().equals("choice"))) {
-			complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+			if (complexType == null) {
+				complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+				// register immediately for recursive references
+				registerComplexType(tag, name, complexType);
+			}
+			logger.debug("Parsing sequence for {}", complexType);
 			Object returnValue = parseSequence(firstChildElement, namespaces, complexType);
-			if (returnValue instanceof DelayedParse)
+			if (returnValue instanceof DelayedParse) {
+				// clear anything we may have parsed, we will reparse in a future run
+				// we can't just throw the type away cause there may be circular dependencies between types
+				// this means they need each other to exist for parsing
+				complexType.clear();
 				return returnValue;
+			}
 		}
 		else {
 			if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("complexContent")) {
-				complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+				if (complexType == null) {
+					complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+					registerComplexType(tag, name, complexType);
+				}
 				logger.debug("Parsing complex content for {}", complexType);
 				firstChildElement = getFirstChild(firstChildElement);
 				if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("extension")) {
@@ -483,14 +496,19 @@ public class XMLSchema implements DefinedTypeRegistry {
 						return new DelayedParse(tag, "Could not find complex super type: " + baseNamespace + " # " + baseName);
 					complexType.setSuperType(superType);
 					Object returnValue = parseSequence(getFirstChild(firstChildElement), namespaces, complexType);
-					if (returnValue instanceof DelayedParse)
+					if (returnValue instanceof DelayedParse) {
+						complexType.clear();
 						return returnValue;
+					}
 				}
 				else
 					throw new ParseException("Only extensions of complex types are currently supported", 0);
 			}
 			else if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("simpleContent")) {
-				complexType = name == null ? new XMLSchemaComplexSimpleType(this) : new XMLSchemaComplexSimpleType(this, name);
+				if (complexType == null) {
+					complexType = name == null ? new XMLSchemaComplexSimpleType(this) : new XMLSchemaComplexSimpleType(this, name);
+					registerComplexType(tag, name, complexType);
+				}
 				logger.debug("Parsing simple content for {}", complexType);
 				firstChildElement = getFirstChild(firstChildElement);
 				if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("extension")) {
@@ -507,8 +525,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 						superType = (SimpleType) getComplexType(baseNamespace, baseName);
 					}
 					// delay
-					if (superType == null)
+					if (superType == null) {
+						unregisterComplexType(tag, name, complexType);
 						return new DelayedParse(tag, "Could not find simple super type: " + baseNamespace + " # " + baseName);
+					}
 					
 					SimpleType actualType = null;
 					if (stringsOnly && !String.class.isAssignableFrom(superType.getInstanceClass())) {
@@ -520,8 +540,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 					((XMLSchemaComplexSimpleType<?>) complexType).setSuperType(superType, baseName);
 					// should only contain attributes!
 					Object returnValue = parseSequence(firstChildElement, namespaces, complexType);
-					if (returnValue instanceof DelayedParse)
+					if (returnValue instanceof DelayedParse) {
+						complexType.clear();
 						return returnValue;
+					}
 				}
 				else
 					throw new ParseException("Only complex extensions of simple types are currently supported", 0);
@@ -529,21 +551,50 @@ public class XMLSchema implements DefinedTypeRegistry {
 			// an empty complex type, perhaps it only has attributes?
 			else {
 				complexType = name == null ? new XMLSchemaComplexType(this) : new XMLSchemaDefinedComplexType(this, name);
+				registerComplexType(tag, name, complexType);
 			}
 		}
 		// after the first element we can have attributes
 		org.w3c.dom.Element next = getNextSibling(firstChildElement);
 		while (next != null) {
 			Object parsed = parse(next, namespaces, complexType);
-			if (parsed instanceof DelayedParse)
+			if (parsed instanceof DelayedParse) {
+				unregisterComplexType(tag, name, complexType);
 				return parsed;
+			}
 			else if (parsed instanceof Element)
 				complexType.addChild((Element<?>) parsed);
 			else
 				throw new RuntimeException("Encountered unrecognized part in complexType " + name);
 			next = getNextSibling(next);
 		}
-		
+		return complexType;
+	}
+	
+	private XMLSchemaComplexType getComplexType(org.w3c.dom.Element tag, String name) {
+		if (name != null) {
+			if (tag.getLocalName().equalsIgnoreCase("group")) {
+				return (XMLSchemaComplexType) groupRegistry.getComplexType(getNamespace(), name);
+			}
+			else {
+				return (XMLSchemaComplexType) registry.getComplexType(getNamespace(), name);
+			}
+		}
+		return null;
+	}
+	
+	private void unregisterComplexType(org.w3c.dom.Element tag, String name, XMLSchemaComplexType complexType) {
+		if (name != null) {
+			if (tag.getLocalName().equalsIgnoreCase("group")) {
+				groupRegistry.unregister(complexType);
+			}
+			else {
+				registry.unregister(complexType);
+			}
+		}
+	}
+
+	private void registerComplexType(org.w3c.dom.Element tag, String name, XMLSchemaComplexType complexType) {
 		// only register named complex types (anonymous can not be referenced)
 		if (name != null) {
 			if (tag.getLocalName().equalsIgnoreCase("group")) {
@@ -553,8 +604,8 @@ public class XMLSchema implements DefinedTypeRegistry {
 				registry.register(complexType);
 			}
 		}
-		return complexType;
 	}
+
 	
 	@SuppressWarnings("unchecked")
 	private Object parseSequence(org.w3c.dom.Element tag, Map<String, String> namespaces, XMLSchemaComplexType complexType) throws SAXException, ParseException, IOException {

@@ -112,6 +112,13 @@ public class XMLSchemaComplexType extends XMLSchemaType<XMLContent> implements C
 		return new MultipleValidator<XMLContent>(validators.toArray(new Validator[validators.size()]));
 	}
 	
+	public void clear() {
+		groups.clear();
+		children.clear();
+		setSuperType(null);
+		super.clear();
+	}
+	
 	public class XMLSchemaComplexTypeValidator extends ComplexTypeValidator {
 
 		public XMLSchemaComplexTypeValidator(ComplexType type) {
