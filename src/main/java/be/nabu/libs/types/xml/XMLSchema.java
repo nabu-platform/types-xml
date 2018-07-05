@@ -66,6 +66,7 @@ import be.nabu.libs.types.properties.TokenProperty;
 
 public class XMLSchema implements DefinedTypeRegistry {
 	
+	private static final String NMTOKEN_REGEX = "[\\s]*[\\w:.-]*[\\s]*";
 	private ResourceResolver resolver;
 	private String namespace;
 	private Document document;
@@ -76,6 +77,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 	private boolean isElementQualified = false;
 	private boolean isAttributeQualified = false;
 	private boolean stringsOnly = false;
+	// perhaps you want your own mechanism of including/importing other schema's, not necessarily the XML schema way which is pretty limited to file system layouts
+	// note that if we ignore a failed include/import _and_ you do not provide your own _and_ types are actually used that are referenced
+	private boolean ignoreInclusionFailure = false;
 	
 	private TypeRegistryImpl registry = new TypeRegistryImpl();
 	
@@ -252,7 +256,21 @@ public class XMLSchema implements DefinedTypeRegistry {
 				imported = getResolver().resolve(namespace);
 			}
 			else {
-				imported = new XMLSchema(getResolver().resolve(new URI(schemaLocation)));
+				URI uri = new URI(schemaLocation);
+				InputStream resolve;
+				try {
+					resolve = getResolver().resolve(uri);
+				}
+				catch (Exception e) {
+					if (ignoreInclusionFailure) {
+						logger.warn("Ignoring failed import: " + schemaLocation);
+						return null;
+					}
+					else {
+						throw new IOException(e);
+					}
+				}
+				imported = new XMLSchema(resolve);
 				((XMLSchema) imported).parse();
 			}
 			if (imported == null) {
@@ -274,7 +292,21 @@ public class XMLSchema implements DefinedTypeRegistry {
 		
 		logger.debug("Including: " + schemaLocation);
 		try {
-			TypeRegistry included = new XMLSchema(getResolver().resolve(new URI(schemaLocation)));
+			URI uri = new URI(schemaLocation);
+			InputStream resolve;
+			try {
+				resolve = getResolver().resolve(uri);
+			}
+			catch (Exception e) {
+				if (ignoreInclusionFailure) {
+					logger.warn("Ignoring failed include: " + schemaLocation);
+					return null;
+				}
+				else {
+					throw new IOException(e);
+				}
+			}
+			TypeRegistry included = new XMLSchema(resolve);
 			if (included instanceof XMLSchema && !getNamespace().equals(((XMLSchema) included).getNamespace()))
 				throw new ParseException("The included schema does not have the correct namespace: " + schemaLocation, 0);
 			registry.register(included);
@@ -333,6 +365,14 @@ public class XMLSchema implements DefinedTypeRegistry {
 			}
 			
 			simpleType = name == null ? new XMLSchemaSimpleType(this, superType, baseName) : new XMLSchemaDefinedSimpleType(this, name, superType, baseName);
+			
+			if (NAMESPACE.equals(baseNamespace) && (baseName.equalsIgnoreCase("token") || baseName.equalsIgnoreCase("nmtoken"))) {
+				simpleType.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
+			}
+			
+			if (NAMESPACE.equals(baseNamespace) && baseName.equalsIgnoreCase("nmtoken")) {
+				simpleType.setProperty(new ValueImpl<String>(PatternProperty.getInstance(), NMTOKEN_REGEX));
+			}
 			
 			if (actualType != null)
 				simpleType.setProperty(new ValueImpl(new ActualTypeProperty(), actualType));
@@ -438,8 +478,13 @@ public class XMLSchema implements DefinedTypeRegistry {
 		
 		Element<?> attribute = new XMLSchemaAttribute(this, name, simpleType, parent);
 		
-		if (typeName != null && typeName.equalsIgnoreCase("token")) {
+		if (typeName != null && (typeName.equalsIgnoreCase("token") || typeName.equalsIgnoreCase("nmtoken"))) {
 			attribute.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
+		}
+		
+		// add a regex for nmtokens
+		if (typeName != null && typeName.equalsIgnoreCase("nmtoken")) {
+			attribute.setProperty(new ValueImpl<String>(PatternProperty.getInstance(), NMTOKEN_REGEX));
 		}
 		
 		if (actualType != null)
@@ -495,10 +540,14 @@ public class XMLSchema implements DefinedTypeRegistry {
 					if (superType == null)
 						return new DelayedParse(tag, "Could not find complex super type: " + baseNamespace + " # " + baseName);
 					complexType.setSuperType(superType);
-					Object returnValue = parseSequence(getFirstChild(firstChildElement), namespaces, complexType);
-					if (returnValue instanceof DelayedParse) {
-						complexType.clear();
-						return returnValue;
+					org.w3c.dom.Element firstChild = getFirstChild(firstChildElement);
+					// can have empty extensions...
+					if (firstChild != null) {
+						Object returnValue = parseSequence(firstChild, namespaces, complexType);
+						if (returnValue instanceof DelayedParse) {
+							complexType.clear();
+							return returnValue;
+						}
 					}
 				}
 				else
@@ -714,6 +763,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 		String nillable = tag.hasAttribute("nillable") ? tag.getAttribute("nillable") : null;
 		String reference = tag.hasAttribute("ref") ? tag.getAttribute("ref") : null;
 		boolean isToken = false;
+		boolean isNmToken = false;
 		// TODO: currently unused but can add them later
 //		String defaultValue = tag.hasAttribute("default") ? tag.getAttribute("default") : null;
 //		String fixedValue = tag.hasAttribute("fixed") ? tag.getAttribute("fixed") : null;
@@ -752,7 +802,8 @@ public class XMLSchema implements DefinedTypeRegistry {
 					if (Date.class.isAssignableFrom(simpleType.getInstanceClass()))
 						formatProperty = new ValueImpl<String>(new FormatProperty(), typeName);
 					elementType = simpleType;
-					isToken = typeName != null && typeName.equalsIgnoreCase("token");
+					isNmToken = typeName != null && typeName.equalsIgnoreCase("nmtoken");
+					isToken = typeName != null && (typeName.equalsIgnoreCase("token") || isNmToken);
 				}
 				else {
 					elementType = getSimpleType(typeNamespace, typeName);
@@ -789,6 +840,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 		if (isToken) {
 			element.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
 		}
+		if (isNmToken) {
+			element.setProperty(new ValueImpl<String>(PatternProperty.getInstance(), NMTOKEN_REGEX));
+		}
 		// only register elements that are at the root of the schema
 		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema"))
 			registry.register(element);
@@ -808,7 +862,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 	}
 	
 	public static SimpleType<?> getNativeSchemaType(String typeName, SimpleTypeWrapper wrapper) {
-		if (typeName == null || typeName.equalsIgnoreCase("string") || typeName.equalsIgnoreCase("token"))
+		if (typeName == null || typeName.equalsIgnoreCase("string") || typeName.equalsIgnoreCase("token") || typeName.equalsIgnoreCase("nmtoken"))
 			return wrapper.wrap(String.class);
 		else if (typeName.equalsIgnoreCase("boolean"))
 			return wrapper.wrap(Boolean.class);
@@ -927,4 +981,13 @@ public class XMLSchema implements DefinedTypeRegistry {
 		}
 		return id;
 	}
+
+	public boolean isIgnoreInclusionFailure() {
+		return ignoreInclusionFailure;
+	}
+
+	public void setIgnoreInclusionFailure(boolean ignoreInclusionFailure) {
+		this.ignoreInclusionFailure = ignoreInclusionFailure;
+	}
+	
 }
