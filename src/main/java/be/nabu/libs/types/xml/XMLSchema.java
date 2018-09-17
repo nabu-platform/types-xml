@@ -42,6 +42,7 @@ import be.nabu.libs.types.api.TypeRegistry;
 import be.nabu.libs.types.api.Unmarshallable;
 import be.nabu.libs.types.base.Choice;
 import be.nabu.libs.types.base.CollectionFormat;
+import be.nabu.libs.types.base.Duration;
 import be.nabu.libs.types.base.ValueImpl;
 import be.nabu.libs.types.properties.ActualTypeProperty;
 import be.nabu.libs.types.properties.AttributeQualifiedDefaultProperty;
@@ -271,6 +272,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 					}
 				}
 				imported = new XMLSchema(resolve);
+				((XMLSchema) imported).setResolver(getResolver());
 				((XMLSchema) imported).parse();
 			}
 			if (imported == null) {
@@ -278,6 +280,15 @@ public class XMLSchema implements DefinedTypeRegistry {
 			}
 			if (imported instanceof XMLSchema && !namespace.equals(((XMLSchema) imported).getNamespace())) {
 				throw new ParseException("The imported schema '" + schemaLocation + "' does not have the declared namespace: " + namespace + " != " + ((XMLSchema) imported).getNamespace(), 0);
+			}
+			if (imported instanceof XMLSchema) {
+				for (Map.Entry<String, String> entry : namespaces.entrySet()) {
+					// we want the prefix of the namespace
+					if (namespace.equals(entry.getValue())) {
+						((XMLSchema) imported).setId(id + "." + entry.getKey());
+						break;
+					}
+				}
 			}
 			registry.register(imported);
 			return imported;
@@ -307,8 +318,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 				}
 			}
 			TypeRegistry included = new XMLSchema(resolve);
-			if (included instanceof XMLSchema && !getNamespace().equals(((XMLSchema) included).getNamespace()))
-				throw new ParseException("The included schema does not have the correct namespace: " + schemaLocation, 0);
+			((XMLSchema) included).setResolver(getResolver());
+			// for an include it should be the same namespace, often times it simply has no namespace and everything in it should be imported into your own
+			((XMLSchema) included).setNamespace(getNamespace());
+			((XMLSchema) included).parse();
 			registry.register(included);
 			return included;
 		}
@@ -356,6 +369,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 				if (superType == null)
 					return new DelayedParse(tag, "Could not find superType " + baseNamespace + " # " + baseName);
 			}
+			else {
+				superType = getNativeSchemaType("string");
+			}
 			
 			SimpleType actualType = null;
 			if (stringsOnly && !String.class.isAssignableFrom(superType.getInstanceClass())) {
@@ -381,7 +397,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 			// all native types are implemented with unmarshalling capabilities
 			// we need the base type you are extending in case it's a date, because we need to know which type of date
 			String baseTypeName = simpleType.getBaseTypeName();
-			superType = (SimpleType) simpleType.getSuperType();
+			superType = (SimpleType) simpleType;
 			while(superType.getSuperType() != null) {
 				if (superType instanceof XMLSchemaSimpleType)
 					baseTypeName = ((XMLSchemaSimpleType) superType).getBaseTypeName();
@@ -439,6 +455,12 @@ public class XMLSchema implements DefinedTypeRegistry {
 				}
 				if (!enumerationValues.isEmpty())
 					simpleType.setProperty(new ValueImpl(new EnumerationProperty(), enumerationValues));
+			}
+			// a union allows a simple element to have one or multiple types, it does not actually merge them, it simply states any of its members are valid
+			// because we don't support multitype for a single element, we simply make sure the data type is generic enough to allow anything
+			else if (firstChildElement.getNamespaceURI().equals(NAMESPACE) && firstChildElement.getLocalName().equals("union")) {
+				// unless you specified a base type (not sure if this is even allowed in a union), this should be a string without any additional attributes
+				// so simply send that back
 			}
 			else
 				throw new RuntimeException("Only simple restrictions of simple types are currently supported");
@@ -891,6 +913,9 @@ public class XMLSchema implements DefinedTypeRegistry {
 		// interpret anySimpleType as string!
 		else if (typeName.equalsIgnoreCase("anySimpleType"))
 			return wrapper.wrap(String.class);
+		else if (typeName.equalsIgnoreCase("duration")) {
+			return wrapper.wrap(Duration.class);
+		}
 		return null;
 	}
 	
@@ -988,6 +1013,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 
 	public void setIgnoreInclusionFailure(boolean ignoreInclusionFailure) {
 		this.ignoreInclusionFailure = ignoreInclusionFailure;
+	}
+
+	public void setNamespace(String namespace) {
+		this.namespace = namespace;
 	}
 	
 }
