@@ -54,6 +54,10 @@ public class XMLSchemaComplexType extends XMLSchemaType<XMLContent> implements C
 	public Element<?> get(String path) {
 		ParsedPath parsed = new ParsedPath(path);
 		Element<?> child = children.get(parsed.getName());
+		// look in the parent if we can't find it here
+		if (child == null && getSuperType() instanceof ComplexType) {
+			child = ((ComplexType) getSuperType()).get(parsed.getName());
+		}
 		return parsed.getChildPath() != null
 			? ((ComplexType) child.getType()).get(parsed.getChildPath().toString())
 			: child;

@@ -268,7 +268,8 @@ public class XMLSchema implements DefinedTypeRegistry {
 						return null;
 					}
 					else {
-						throw new IOException(e);
+						logger.error("Failed import: " + schemaLocation);
+						throw new IOException("Failed to import: " + schemaLocation, e);
 					}
 				}
 				imported = new XMLSchema(resolve);
@@ -841,6 +842,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 				? new XMLSchemaDefinedElement(this, elementType, parent, XMLContent.class)
 				: new XMLSchemaElement(this, elementType, parent, XMLContent.class);
 				
+			// need this to maintain the explicit values for element qualified default etc!
+			// in retrospect, the default values on properties were likely a mistake...
+			((XMLSchemaElement) element).setMaintainDefaultValues(true);
+			
 			if (formatProperty != null)
 				element.setProperty(formatProperty);
 			
