@@ -467,6 +467,12 @@ public class XMLSchema implements DefinedTypeRegistry {
 				throw new RuntimeException("Only simple restrictions of simple types are currently supported");
 	
 		}
+		
+		// inherit the schema settings when at the root
+		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema")) {
+			simpleType.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
+		}
+		
 		if (name != null)
 			registry.register(simpleType);
 		
@@ -639,6 +645,11 @@ public class XMLSchema implements DefinedTypeRegistry {
 			else
 				throw new RuntimeException("Encountered unrecognized part in complexType " + name);
 			next = getNextSibling(next);
+		}
+		// inherit the schema settings when at the root
+		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema")) {
+			complexType.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
+			complexType.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
 		}
 		return complexType;
 	}
@@ -860,10 +871,18 @@ public class XMLSchema implements DefinedTypeRegistry {
 		// set fixed attributes
 		// xml scheme has nillable false by default
 		element.setProperty(new ValueImpl(NillableProperty.getInstance(), nillable != null ? new Boolean(nillable) : false));
-		// default is unqualified
-		element.setProperty(new ValueImpl(QualifiedProperty.getInstance(), form != null ? form.equalsIgnoreCase("qualified") : false));
-		element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
-		element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
+		// default is unqualified, we can override it, if we are at the root level, we inherit the schema settings
+		// note that the form attribute should not occur when the schema is the parent
+		if (tag.getParentNode().getLocalName().equalsIgnoreCase("schema")) {
+			element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
+			element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
+		}
+		else if (form != null) {
+			element.setProperty(new ValueImpl(QualifiedProperty.getInstance(), form.equalsIgnoreCase("qualified")));
+			element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), form.equalsIgnoreCase("qualified")));
+		}
+//		element.setProperty(new ValueImpl<Boolean>(ElementQualifiedDefaultProperty.getInstance(), isElementQualified));
+//		element.setProperty(new ValueImpl<Boolean>(AttributeQualifiedDefaultProperty.getInstance(), isAttributeQualified));
 		if (isToken) {
 			element.setProperty(new ValueImpl<Boolean>(TokenProperty.getInstance(), true));
 		}
