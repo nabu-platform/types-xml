@@ -334,7 +334,6 @@ public class XMLContent implements ComplexContent {
 			return content == null ? null : unmarshal(content, childDefinition);
 		}
 		else {
-			
 			if (parsed.getName().equals(NameProperty.ANY)) {
 				if (parsed.getIndex() != null) {
 					if (!anyElements.contains(parsed.getIndex())) {
@@ -458,8 +457,9 @@ public class XMLContent implements ComplexContent {
 					break;
 				}
 			}
+			// tiny tweak: if we have attributes, we are considered a non-text element as well!
 			if (isTextElement == null)
-				isTextElement = true;
+				isTextElement = element.getAttributes().getLength() == 0;
 		}
 		return isTextElement;
 	}
