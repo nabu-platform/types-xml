@@ -67,6 +67,7 @@ import be.nabu.libs.types.properties.TokenProperty;
 
 public class XMLSchema implements DefinedTypeRegistry {
 	
+	private static final String LANGUAGE_REGEX = "([a-zA-Z]{2}|[iI]-[a-zA-Z]+|[xX]-[a-zA-Z]{1,8})(-[a-zA-Z]{1,8})*";
 	private static final String NMTOKEN_REGEX = "[\\s]*[\\w:.-]*[\\s]*";
 	private ResourceResolver resolver;
 	private String namespace;
@@ -81,6 +82,8 @@ public class XMLSchema implements DefinedTypeRegistry {
 	// perhaps you want your own mechanism of including/importing other schema's, not necessarily the XML schema way which is pretty limited to file system layouts
 	// note that if we ignore a failed include/import _and_ you do not provide your own _and_ types are actually used that are referenced
 	private boolean ignoreInclusionFailure = false;
+	
+	private int importCounter = 1;
 	
 	private TypeRegistryImpl registry = new TypeRegistryImpl();
 	
@@ -283,12 +286,17 @@ public class XMLSchema implements DefinedTypeRegistry {
 				throw new ParseException("The imported schema '" + schemaLocation + "' does not have the declared namespace: " + namespace + " != " + ((XMLSchema) imported).getNamespace(), 0);
 			}
 			if (imported instanceof XMLSchema) {
+				boolean found = false;
 				for (Map.Entry<String, String> entry : namespaces.entrySet()) {
 					// we want the prefix of the namespace
 					if (namespace.equals(entry.getValue())) {
 						((XMLSchema) imported).setId(id + "." + entry.getKey());
+						found = true;
 						break;
 					}
+				}
+				if (!found) {
+					((XMLSchema) imported).setId(id + ".import" + importCounter++);
 				}
 			}
 			registry.register(imported);
@@ -322,6 +330,8 @@ public class XMLSchema implements DefinedTypeRegistry {
 			((XMLSchema) included).setResolver(getResolver());
 			// for an include it should be the same namespace, often times it simply has no namespace and everything in it should be imported into your own
 			((XMLSchema) included).setNamespace(getNamespace());
+			// the same namespace, use the same id
+			((XMLSchema) included).setId(id);
 			((XMLSchema) included).parse();
 			registry.register(included);
 			return included;
@@ -389,6 +399,10 @@ public class XMLSchema implements DefinedTypeRegistry {
 			
 			if (NAMESPACE.equals(baseNamespace) && baseName.equalsIgnoreCase("nmtoken")) {
 				simpleType.setProperty(new ValueImpl<String>(PatternProperty.getInstance(), NMTOKEN_REGEX));
+			}
+			
+			if (NAMESPACE.equals(baseNamespace) && baseName.equalsIgnoreCase("language")) {
+				simpleType.setProperty(new ValueImpl<String>(PatternProperty.getInstance(), LANGUAGE_REGEX));
 			}
 			
 			if (actualType != null)
@@ -908,7 +922,7 @@ public class XMLSchema implements DefinedTypeRegistry {
 	}
 	
 	public static SimpleType<?> getNativeSchemaType(String typeName, SimpleTypeWrapper wrapper) {
-		if (typeName == null || typeName.equalsIgnoreCase("string") || typeName.equalsIgnoreCase("token") || typeName.equalsIgnoreCase("nmtoken"))
+		if (typeName == null || typeName.equalsIgnoreCase("string") || typeName.equalsIgnoreCase("token") || typeName.equalsIgnoreCase("nmtoken") || typeName.equalsIgnoreCase("language"))
 			return wrapper.wrap(String.class);
 		else if (typeName.equalsIgnoreCase("boolean"))
 			return wrapper.wrap(Boolean.class);

@@ -10,6 +10,9 @@ import be.nabu.libs.property.api.Value;
 import be.nabu.libs.types.api.ComplexType;
 import be.nabu.libs.types.api.Element;
 import be.nabu.libs.types.api.Type;
+import be.nabu.libs.types.base.ValueImpl;
+import be.nabu.libs.types.properties.NameProperty;
+import be.nabu.libs.types.properties.NamespaceProperty;
 import be.nabu.libs.validator.api.Validation;
 
 public class XMLSchemaReferenceElement<T> implements Element<T> {
@@ -20,6 +23,7 @@ public class XMLSchemaReferenceElement<T> implements Element<T> {
 	private Element<T> reference;
 	private Map<Property<?>, Value<?>> properties = new LinkedHashMap<Property<?>, Value<?>>();
 	private ComplexType parent;
+	private boolean propertiesCopied;
 	
 	XMLSchemaReferenceElement(ComplexType parent, XMLSchema schema, String referenceNamespace, String referenceName, String name) {
 		this.schema = schema;
@@ -58,6 +62,19 @@ public class XMLSchemaReferenceElement<T> implements Element<T> {
 
 	@Override
 	public Value<?>[] getProperties() {
+//		return properties.values().toArray(new Value<?> [properties.size()]);
+		// we do this lazily because it might not be available at the start
+		if (!propertiesCopied) {
+			synchronized (this) {
+				if (!propertiesCopied) {
+					// inherit the properties
+					setProperty(getReference().getProperties());
+					// make sure we have the correct name
+					setProperty(new ValueImpl<String>(NameProperty.getInstance(), name));
+					propertiesCopied = true;
+				}
+			}
+		}
 		return properties.values().toArray(new Value<?> [properties.size()]);
 	}
 
@@ -73,7 +90,9 @@ public class XMLSchemaReferenceElement<T> implements Element<T> {
 
 	@Override
 	public String getNamespace() {
-		return schema.getNamespace();
+//		return schema.getNamespace();
+		// it "seems" the original namespace is maintained when using a ref
+		return referenceNamespace == null ? schema.getNamespace() : referenceNamespace;
 	}
 
 	@Override
