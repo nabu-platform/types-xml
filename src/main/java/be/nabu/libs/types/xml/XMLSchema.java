@@ -954,6 +954,13 @@ public class XMLSchema implements DefinedTypeRegistry {
 		else if (typeName.equalsIgnoreCase("duration")) {
 			return wrapper.wrap(Duration.class);
 		}
+		// a QName is a string value that has a namespace prefix that should be resolvable
+		// this means it can point to something _in_ a schema
+		// it is not clear what we would want to do with this information however...?
+		// it can potentially be used to dynamically carry a typeid for an otherwise xsd:any thing? even so, it has no way to reference that any so...
+		else if (typeName.equalsIgnoreCase("QName")) {
+			return wrapper.wrap(String.class);
+		}
 		return null;
 	}
 	
