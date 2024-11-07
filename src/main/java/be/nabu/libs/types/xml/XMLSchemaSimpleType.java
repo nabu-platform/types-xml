@@ -42,7 +42,8 @@ public class XMLSchemaSimpleType<T> extends XMLSchemaType<T> implements SimpleTy
 	@SuppressWarnings({ "unchecked", "rawtypes" })
 	@Override
 	public Class<T> getInstanceClass() {
-		return getSuperType() == null ? String.class : ((SimpleType) getSuperType()).getInstanceClass();
+		Class clazz = getSuperType() == null ? String.class : ((SimpleType) getSuperType()).getInstanceClass();
+		return (Class<T>) clazz;
 	}
 
 	String getBaseTypeName() {
